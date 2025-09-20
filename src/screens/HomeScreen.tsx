@@ -37,7 +37,7 @@ type Schedule = {
   time: string;
   category: string;
   priority: "high" | "medium" | "low";
-  status: "pending" | "in-progress" | "completed";
+  status: "pending" | "in-progress" | "completed" | "cancelled"; // Add cancelled
   createdAt?: Date;
 };
 
@@ -47,11 +47,7 @@ const PRIORITY_COLORS: Record<Schedule["priority"], string> = {
   low: "#28a745",
 };
 
-const STATUS_COLORS: Record<Schedule["status"], string> = {
-  pending: "#6c757d",
-  "in-progress": "#007bff",
-  completed: "#28a745",
-};
+
 
 const HomeScreen = ({ navigation }: { navigation: any }) => {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -181,52 +177,93 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
     setFilteredSchedules(filtered);
   }, [schedules, searchText, filterStatus]);
 
-  // Delete schedule
-  const handleDelete = async (id: string, title: string) => {
-    Alert.alert("Confirm Delete", `Delete "${title}"?`, [
-      { text: "Cancel", style: "cancel" },
+
+          ///
+  // Fixed Delete function
+const handleDelete = async (id: string, title: string) => {
+  console.log("Delete button pressed for:", title, id); // Debug log
+  
+  Alert.alert(
+    "Confirm Delete", 
+    `Delete "${title}"?`, 
+    [
+      { 
+        text: "Cancel", 
+        style: "cancel",
+        onPress: () => console.log("Delete cancelled")
+      },
       {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
+          console.log("Delete confirmed, deleting:", id);
           try {
             await deleteDoc(doc(db, "schedules", id));
-            await fetchSchedules();
+            console.log("Document deleted successfully");
+            await fetchSchedules(); // Refresh the list
             Alert.alert("Success", "Schedule deleted successfully");
           } catch (error: any) {
+            console.error("Delete error:", error);
             Alert.alert("Delete Error", error.message);
           }
         },
       },
-    ]);
-  };
+    ],
+    { cancelable: false } // Add this option
+  );
+};
 
-  const handleLogout = async () => {
-    Alert.alert("Logout", "Are you sure?", [
-      { text: "Cancel", style: "cancel" },
+// Fixed Logout function  
+const handleLogout = async () => {
+  console.log("Logout button pressed"); // Debug log
+  
+  Alert.alert(
+    "Logout", 
+    "Are you sure you want to logout?", 
+    [
+      { 
+        text: "Cancel", 
+        style: "cancel",
+        onPress: () => console.log("Logout cancelled")
+      },
       {
         text: "Logout",
         style: "destructive",
         onPress: async () => {
+          console.log("Logout confirmed");
           try {
             await signOut(auth);
+            console.log("User signed out successfully");
             navigation.replace("Auth");
           } catch (error: any) {
+            console.error("Logout error:", error);
             Alert.alert("Logout Error", error.message);
           }
         },
       },
-    ]);
+    ],
+    { cancelable: false } // Add this option
+  );
+};
+    // HERE
+ // Update this function to handle all status types
+const getStatusDisplay = (status: Schedule["status"]) => {
+  const map: Record<Schedule["status"] | "cancelled", string> = {
+    pending: "Pending",
+    "in-progress": "In Progress", 
+    completed: "Completed",
+    cancelled: "Cancelled", // Add this missing status
   };
+  return map[status as keyof typeof map] || "Pending";
+};
 
-  const getStatusDisplay = (status: Schedule["status"]) => {
-    const map: Record<Schedule["status"], string> = {
-      pending: "Pending",
-      "in-progress": "In Progress",
-      completed: "Completed",
-    };
-    return map[status];
-  };
+// Also update your STATUS_COLORS to match
+const STATUS_COLORS: Record<Schedule["status"] | "cancelled", string> = {
+  pending: "#6c757d",
+  "in-progress": "#007bff",
+  completed: "#28a745",
+  cancelled: "#dc3545", // Make sure this matches
+};
 
   const getPriorityDisplay = (priority: Schedule["priority"]) => {
     const map: Record<Schedule["priority"], string> = {
@@ -362,28 +399,31 @@ const renderScheduleItem = ({ item }: { item: Schedule }) => {
           onChangeText={setSearchText}
         />
       </View>
+        
 
-      <View style={styles.filterContainer}>
-        {["all", "pending", "in-progress", "completed"].map((status) => (
-          <TouchableOpacity
-            key={status}
-            style={[
-              styles.filterBtn,
-              filterStatus === status && styles.filterBtnActive,
-            ]}
-            onPress={() => setFilterStatus(status as any)}
-          >
-            <Text
-              style={[
-                styles.filterBtnText,
-                filterStatus === status && styles.filterBtnTextActive,
-              ]}
-            >
-              {status === "all" ? "All" : getStatusDisplay(status as Schedule["status"])}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+
+      
+<View style={styles.filterContainer}>
+  {(["all", "pending", "in-progress", "completed"] as const).map((status) => (
+    <TouchableOpacity
+      key={status}
+      style={[
+        styles.filterBtn,
+        filterStatus === status && styles.filterBtnActive,
+      ]}
+      onPress={() => setFilterStatus(status)}
+    >
+      <Text
+        style={[
+          styles.filterBtnText,
+          filterStatus === status && styles.filterBtnTextActive,
+        ]}
+      >
+        {status === "all" ? "All" : getStatusDisplay(status)}
+      </Text>
+    </TouchableOpacity>
+  ))}
+</View>
 
       <TouchableOpacity
         style={styles.addBtn}
