@@ -334,9 +334,17 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
     const isCompleted = item.status === "completed";
 
     return (
-      <View style={[styles.item, overdue && styles.overdueItem]}>
+      <View style={[
+        styles.item, 
+        overdue && styles.overdueItem,
+        isCompleted && styles.completedItem
+      ]}>
         <View style={styles.itemHeader}>
-          <Text style={[styles.itemTitle, overdue && styles.overdueText]}>
+          <Text style={[
+            styles.itemTitle, 
+            overdue && styles.overdueText,
+            isCompleted && styles.completedText
+          ]}>
             {item.title || "No Title"}
           </Text>
           <View style={styles.badgeContainer}>
@@ -364,18 +372,30 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
         </View>
 
         <View style={styles.itemContent}>
-          <Text style={styles.dateText}>
+          <Text style={[
+            styles.dateText,
+            isCompleted && styles.completedText
+          ]}>
             📅 {item.date || "No date"} {item.time && `⏰ ${item.time}`}
           </Text>
           {item.category && (
-            <Text style={styles.categoryText}>🏷️ {item.category}</Text>
+            <Text style={[
+              styles.categoryText,
+              isCompleted && styles.completedText
+            ]}>
+              🏷️ {item.category}
+            </Text>
           )}
           {item.description && (
-            <Text style={styles.descriptionText} numberOfLines={2}>
+            <Text style={[
+              styles.descriptionText, 
+              isCompleted && styles.completedText
+            ]} numberOfLines={2}>
               {item.description}
             </Text>
           )}
           {overdue && <Text style={styles.overdueLabel}>⚠️ Overdue</Text>}
+          {isCompleted && <Text style={styles.completedLabel}>✅ Completed</Text>}
         </View>
 
         <View style={styles.actions}>
@@ -816,6 +836,10 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4, 
     borderLeftColor: "#dc3545" 
   },
+  completedItem: { 
+    borderLeftWidth: 4, 
+    borderLeftColor: "#28a745" 
+  },
   itemHeader: {
     flexDirection: "row",
     justifyContent: "space-between", 
@@ -831,6 +855,9 @@ const styles = StyleSheet.create({
   },
   overdueText: { 
     color: "#dc3545" 
+  },
+  completedText: { 
+    color: "#28a745" 
   },
   badgeContainer: {  
     flexDirection: "row", 
@@ -873,7 +900,14 @@ const styles = StyleSheet.create({
   overdueLabel: { 
     color: "#dc3545", 
     fontSize: 12, 
-    marginTop: 3 
+    marginTop: 3,
+    fontWeight: "600",
+  },
+  completedLabel: { 
+    color: "#28a745", 
+    fontSize: 12, 
+    marginTop: 3,
+    fontWeight: "600",
   },
   actions: { 
     flexDirection: "row", 
