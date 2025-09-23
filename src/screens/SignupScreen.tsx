@@ -34,10 +34,10 @@ const SignupScreen = ({ navigation }) => {
 
       // ✅ Success message → redirect to Login
       showAlert('Success', 'Account Created Successfully!, Logging In', () => {
-        navigation.replace('Login');
+        // navigation.replace('Login');
       });
     } catch (error: any) {
-      console.error('Signup Error:', error.message);
+      // console.error('Signup Error:', error.message);
 
       let errorMessage = 'Invalid credentials, please try again.';
 

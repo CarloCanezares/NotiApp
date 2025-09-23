@@ -20,7 +20,7 @@ const LoginScreen = ({ navigation }) => {
   const handleLogin = async () => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      navigation.replace('Home'); // Navigate to Home after login
+      // navigation.replace('Home'); // Navigate to Home after login
     } catch (error) {
       let errorMessage = 'Wrong credentials. Please try again.';
 
