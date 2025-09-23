@@ -58,6 +58,13 @@ const STATUS_COLORS: Record<Schedule["status"] | "cancelled", string> = {
 
 const { height: screenHeight } = Dimensions.get("window");
 
+const PRIORITY_OPTIONS = [
+  { label: "All Priorities", value: "all" },
+  { label: "High Priority", value: "high" },
+  { label: "Medium Priority", value: "medium" },
+  { label: "Low Priority", value: "low" },
+];
+
 const HomeScreen = ({ navigation }: { navigation: any }) => {
   const { currentUser } = useAuth();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -66,8 +73,10 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | Schedule["status"]>("all");
+  const [filterPriority, setFilterPriority] = useState<"all" | Schedule["priority"]>("all");
   const [deleteConfirm, setDeleteConfirm] = useState<{id: string, title: string} | null>(null);
   const [logoutConfirm, setLogoutConfirm] = useState(false);
+  const [priorityModalVisible, setPriorityModalVisible] = useState(false);
   const fadeAnim = new Animated.Value(0);
 
   const fetchSchedules = async () => {
@@ -173,8 +182,12 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
       filtered = filtered.filter((s) => s.status === filterStatus);
     }
 
+    if (filterPriority !== "all") {
+      filtered = filtered.filter((s) => s.priority === filterPriority);
+    }
+
     setFilteredSchedules(filtered);
-  }, [schedules, searchText, filterStatus]);
+  }, [schedules, searchText, filterStatus, filterPriority]);
 
   const handleDelete = (id: string, title: string) => {
     setDeleteConfirm({ id, title });
@@ -228,10 +241,69 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
     return map[priority];
   };
 
+  const getPriorityLabel = (value: "all" | Schedule["priority"]) => {
+    if (value === "all") return "All Priorities";
+    return getPriorityDisplay(value);
+  };
+
   const isOverdue = (date: string) => {
     const today = new Date().toISOString().split("T")[0];
     return date < today && date !== "";
   };
+
+  const renderPrioritySelector = () => (
+    <TouchableOpacity 
+      style={styles.prioritySelectorButton}
+      onPress={() => setPriorityModalVisible(true)}
+    >
+      <Text style={styles.prioritySelectorLabel}>Priority:</Text>
+      <Text style={styles.prioritySelectorValue}>
+        {getPriorityLabel(filterPriority)}
+      </Text>
+      <Text style={styles.prioritySelectorArrow}>▼</Text>
+    </TouchableOpacity>
+  );
+
+  const renderPriorityModal = () => (
+    <Modal
+      visible={priorityModalVisible}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={() => setPriorityModalVisible(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.priorityModalContent}>
+          <Text style={styles.modalTitle}>Filter by Priority</Text>
+          {PRIORITY_OPTIONS.map((option) => (
+            <TouchableOpacity
+              key={option.value}
+              style={[
+                styles.modalOption,
+                filterPriority === option.value && styles.modalOptionSelected,
+              ]}
+              onPress={() => {
+                setFilterPriority(option.value as any);
+                setPriorityModalVisible(false);
+              }}
+            >
+              <Text style={[
+                styles.modalOptionText,
+                filterPriority === option.value && styles.modalOptionTextSelected,
+              ]}>
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            style={styles.modalCloseButton}
+            onPress={() => setPriorityModalVisible(false)}
+          >
+            <Text style={styles.modalCloseButtonText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
 
   const renderScheduleItem = ({ item }: { item: Schedule }) => {
     const overdue = isOverdue(item.date) && item.status !== "completed";
@@ -344,26 +416,32 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
           />
         </View>
 
-        <View style={styles.filterContainer}>
-          {(["all", "pending", "in-progress", "completed"] as const).map((status) => (
-            <TouchableOpacity
-              key={status}
-              style={[
-                styles.filterBtn,
-                filterStatus === status && styles.filterBtnActive,
-              ]}
-              onPress={() => setFilterStatus(status)}
-            >
-              <Text
+        <View style={styles.filtersRow}>
+          <View style={styles.filterContainer}>
+            {(["all", "pending", "in-progress", "completed"] as const).map((status) => (
+              <TouchableOpacity
+                key={status}
                 style={[
-                  styles.filterBtnText,
-                  filterStatus === status && styles.filterBtnTextActive,
+                  styles.filterBtn,
+                  filterStatus === status && styles.filterBtnActive,
                 ]}
+                onPress={() => setFilterStatus(status)}
               >
-                {status === "all" ? "All" : getStatusDisplay(status)}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <Text
+                  style={[
+                    styles.filterBtnText,
+                    filterStatus === status && styles.filterBtnTextActive,
+                  ]}
+                >
+                  {status === "all" ? "All" : getStatusDisplay(status)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.priorityFilterContainer}>
+            {renderPrioritySelector()}
+          </View>
         </View>
 
         <TouchableOpacity
@@ -394,7 +472,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
               <Text style={styles.emptyIcon}>📅</Text>
               <Text style={styles.emptyTitle}>No Schedules Found</Text>
               <Text style={styles.emptySubtitle}>
-                {searchText || filterStatus !== "all"
+                {searchText || filterStatus !== "all" || filterPriority !== "all"
                   ? "Try adjusting your search or filters"
                   : "Tap the button below to create your first schedule"}
               </Text>
@@ -402,6 +480,9 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
           }
         />
       </View>
+
+      {/* Priority Filter Modal */}
+      {renderPriorityModal()}
 
       <Modal
         visible={deleteConfirm !== null}
@@ -544,16 +625,24 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
   },
-  filterContainer: {
+  filtersRow: {
     flexDirection: "row",
     marginBottom: 12,
+    gap: 10,
+  },
+  filterContainer: {
+    flex: 1,
+    flexDirection: "row",
     justifyContent: "space-between",
+  },
+  priorityFilterContainer: {
+    flex: 1,
   },
   filterBtn: {
     flex: 1,
     backgroundColor: "#fff",
     paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: 6,
     borderRadius: 18,
     marginHorizontal: 2,
     alignItems: "center",
@@ -574,6 +663,37 @@ const styles = StyleSheet.create({
   filterBtnTextActive: { 
     color: "#fff", 
     fontWeight: "600" 
+  },
+  prioritySelectorButton: {
+    backgroundColor: "#fff",
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    height: 40,
+  },
+  prioritySelectorLabel: {
+    fontSize: 12,
+    color: "#666",
+    fontWeight: "500",
+  },
+  prioritySelectorValue: {
+    fontSize: 12,
+    color: "#004085",
+    fontWeight: "600",
+    flex: 1,
+    textAlign: "center",
+  },
+  prioritySelectorArrow: {
+    fontSize: 10,
+    color: "#666",
   },
   addBtn: {
     backgroundColor: "#28a745",
@@ -745,6 +865,59 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+  },
+  priorityModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    padding: 20,
+    minWidth: 250,
+    maxWidth: '90%',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 10,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  modalOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  modalOptionSelected: {
+    backgroundColor: '#e3f2fd',
+    borderColor: '#2196f3',
+  },
+  modalOptionText: {
+    fontSize: 16,
+    color: '#333',
+    textAlign: 'center',
+  },
+  modalOptionTextSelected: {
+    color: '#1976d2',
+    fontWeight: '600',
+  },
+  modalCloseButton: {
+    backgroundColor: '#dc3545',
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  modalCloseButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   confirmationModal: {
     backgroundColor: '#fff',
