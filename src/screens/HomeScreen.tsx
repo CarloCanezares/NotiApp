@@ -25,6 +25,8 @@ import {
   getDocs,
   deleteDoc,
   doc,
+  updateDoc,
+  serverTimestamp,
   QueryDocumentSnapshot,
   DocumentData,
 } from "firebase/firestore";
@@ -75,6 +77,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
   const [filterStatus, setFilterStatus] = useState<"all" | Schedule["status"]>("all");
   const [filterPriority, setFilterPriority] = useState<"all" | Schedule["priority"]>("all");
   const [deleteConfirm, setDeleteConfirm] = useState<{id: string, title: string} | null>(null);
+  const [doneConfirm, setDoneConfirm] = useState<{id: string, title: string} | null>(null);
   const [logoutConfirm, setLogoutConfirm] = useState(false);
   const [priorityModalVisible, setPriorityModalVisible] = useState(false);
   const fadeAnim = new Animated.Value(0);
@@ -193,6 +196,10 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
     setDeleteConfirm({ id, title });
   };
 
+  const handleMarkAsDone = (id: string, title: string) => {
+    setDoneConfirm({ id, title });
+  };
+
   const confirmDelete = async () => {
     if (!deleteConfirm) return;
     
@@ -204,6 +211,23 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
       Alert.alert("Error", "Failed to delete schedule. Please try again.");
     } finally {
       setDeleteConfirm(null);
+    }
+  };
+
+  const confirmDone = async () => {
+    if (!doneConfirm) return;
+    
+    try {
+      await updateDoc(doc(db, "schedules", doneConfirm.id), {
+        status: "completed",
+        updatedAt: serverTimestamp(),
+      });
+      await fetchSchedules();
+    } catch (error: any) {
+      console.error("Mark as done error:", error);
+      Alert.alert("Error", "Failed to mark schedule as completed. Please try again.");
+    } finally {
+      setDoneConfirm(null);
     }
   };
 
@@ -307,6 +331,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
 
   const renderScheduleItem = ({ item }: { item: Schedule }) => {
     const overdue = isOverdue(item.date) && item.status !== "completed";
+    const isCompleted = item.status === "completed";
 
     return (
       <View style={[styles.item, overdue && styles.overdueItem]}>
@@ -354,6 +379,14 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
         </View>
 
         <View style={styles.actions}>
+          {!isCompleted && (
+            <TouchableOpacity
+              style={styles.doneBtn}
+              onPress={() => handleMarkAsDone(item.id, item.title)}
+            >
+              <Text style={styles.btnText}>✅ Done</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={styles.editBtn}
             onPress={() => navigation.navigate("EditSchedule", { schedule: item })}
@@ -484,6 +517,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
       {/* Priority Filter Modal */}
       {renderPriorityModal()}
 
+      {/* Delete Confirmation Modal */}
       <Modal
         visible={deleteConfirm !== null}
         transparent={true}
@@ -513,6 +547,42 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
                 onPress={confirmDelete}
               >
                 <Text style={styles.deleteBtnText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Done Confirmation Modal */}
+      <Modal
+        visible={doneConfirm !== null}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setDoneConfirm(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmationModal}>
+            <Text style={styles.confirmationTitle}>Mark as Completed</Text>
+            <Text style={styles.confirmationMessage}>
+              Are you sure you want to mark "{doneConfirm?.title}" as completed?
+            </Text>
+            <Text style={styles.confirmationSubtext}>
+              This will update the status to "Completed" and move it to the completed section.
+            </Text>
+            
+            <View style={styles.confirmationButtons}>
+              <TouchableOpacity
+                style={[styles.confirmationBtn, styles.cancelBtn]}
+                onPress={() => setDoneConfirm(null)}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.confirmationBtn, styles.doneConfirmBtn]}
+                onPress={confirmDone}
+              >
+                <Text style={styles.doneBtnText}>Mark as Done</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -808,13 +878,20 @@ const styles = StyleSheet.create({
   actions: { 
     flexDirection: "row", 
     justifyContent: "flex-end", 
-    marginTop: 6 
+    marginTop: 6,
+    gap: 6,
+  },
+  doneBtn: {
+    backgroundColor: "#28a745",
+    padding: 6,
+    borderRadius: 5,
+    minWidth: 60,
+    alignItems: 'center',
   },
   editBtn: {
     backgroundColor: "#007bff",
     padding: 6,
     borderRadius: 5,
-    marginRight: 6,
     minWidth: 60,
     alignItems: 'center',
   },
@@ -983,6 +1060,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#dc3545',
   },
   deleteBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  doneConfirmBtn: {
+    backgroundColor: '#28a745',
+  },
+  doneBtnText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
